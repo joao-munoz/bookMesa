@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import path from "path";
@@ -17,11 +16,10 @@ import roomRoutes from "./routes/room.routes";
 const app = express();
 const PORT = process.env.PORT || 3002;
 
-// CORS: em producao mesmo dominio, em dev aceita localhost
 const isProd = process.env.NODE_ENV === "production";
-app.use(helmet({ contentSecurityPolicy: false }));
+
 app.use(cors({
-  origin: isProd ? false : [/^http:\/\/localhost:/],
+  origin: true,
   credentials: true,
 }));
 app.use(cookieParser());
@@ -53,26 +51,34 @@ app.get("/api/health", (_req, res) => {
 // Em producao: servir o frontend buildado
 if (isProd) {
   const clientDist = path.join(__dirname, "../../client/dist");
-  if (fs.existsSync(clientDist)) {
-    app.use(express.static(clientDist));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(clientDist, "index.html"));
-    });
-  }
+  console.log("Looking for client dist at:", clientDist);
+  console.log("client dist exists:", fs.existsSync(clientDist));
+  
+  app.use(express.static(clientDist));
+  
+  // SPA catch-all: qualquer rota que não seja /api vai pro index.html
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
 }
+
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: "Erro interno do servidor" });
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT} [${isProd ? "production" : "development"}]`);
 });
 
-// Auto-release job — runs every 5 minutes
+// Auto-release job
 const AUTO_RELEASE_INTERVAL = 5 * 60 * 1000;
 setInterval(async () => {
   try {
     const base = `http://localhost:${PORT}/api`;
-    await fetch(`${base}/reservations/auto-release`, { method: "POST", headers: { "Content-Type": "application/json" } });
-    await fetch(`${base}/lockers/reservations/auto-release`, { method: "POST", headers: { "Content-Type": "application/json" } });
-    await fetch(`${base}/rooms/reservations/auto-release`, { method: "POST", headers: { "Content-Type": "application/json" } });
+    await fetch(`${base}/reservations/auto-release`, { method: "POST" });
+    await fetch(`${base}/lockers/reservations/auto-release`, { method: "POST" });
+    await fetch(`${base}/rooms/reservations/auto-release`, { method: "POST" });
   } catch {
     // silent
   }

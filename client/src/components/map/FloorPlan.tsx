@@ -184,11 +184,31 @@ export function FloorPlan() {
   const panStart = useRef({ x: 0, y: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // Pre-compute SVG dimensions (safe defaults while desks are loading)
+  // This must be BEFORE the early return to keep React hooks in the same order
+  const autoWidth = desks?.length
+    ? Math.max(...desks.map((d) => d.x + d.width)) + 100
+    : 800;
+  const autoHeight = desks?.length
+    ? Math.max(...desks.map((d) => d.y + d.height)) + 60
+    : 600;
+  const svgWidth = settings?.mapWidth ? Number(settings.mapWidth) : autoWidth;
+  const svgHeight = settings?.mapHeight ? Number(settings.mapHeight) : autoHeight;
+  const zoom = isDesktop ? 1 : Math.max(1, (window.innerHeight / svgHeight) * 0.85);
+  const vbW = svgWidth / zoom;
+  const vbH = svgHeight / zoom;
+  const panLimitX = Math.max(0, svgWidth - vbW);
+  const panLimitY = Math.max(0, svgHeight - vbH);
+  const [panX, setPanX] = useState(isDesktop ? 0 : panLimitX / 2);
+  const [panY, setPanY] = useState(isDesktop ? 0 : panLimitY / 2);
+
   // Reset pan when date changes
   useEffect(() => {
-    setPanX(panLimitX / 2);
-    setPanY(panLimitY / 2);
-  }, [selectedDate]);
+    if (!isDesktop) {
+      setPanX(panLimitX / 2);
+      setPanY(panLimitY / 2);
+    }
+  }, [selectedDate, isDesktop, panLimitX, panLimitY]);
 
   const handlePanStart = (clientX: number, clientY: number) => {
     setIsPanning(true);
@@ -237,10 +257,6 @@ export function FloorPlan() {
     );
   }
 
-  const autoWidth = Math.max(...desks!.map((d) => d.x + d.width)) + 100;
-  const autoHeight = Math.max(...desks!.map((d) => d.y + d.height)) + 60;
-  const svgWidth = settings?.mapWidth ? Number(settings.mapWidth) : autoWidth;
-  const svgHeight = settings?.mapHeight ? Number(settings.mapHeight) : autoHeight;
   const selectedInfo = selectedDesk ? deskInfoMap.get(selectedDesk.id) : undefined;
   const isBooth = selectedDesk?.label.startsWith("bv");
   const selectedStatus = selectedInfo?.status || (selectedDesk?.isActive ? "free" : "inactive");
@@ -254,20 +270,7 @@ export function FloorPlan() {
     return diff >= -30 && diff <= 30;
   })();
 
-  // Mobile: zoom into the map so it fills most of the viewport
-  const zoom = isDesktop ? 1 : Math.max(1, (window.innerHeight / svgHeight) * 0.85);
-  const vbW = svgWidth / zoom;
-  const vbH = svgHeight / zoom;
-  const panLimitX = Math.max(0, svgWidth - vbW);
-  const panLimitY = Math.max(0, svgHeight - vbH);
-  const [panX, setPanX] = useState(isDesktop ? 0 : panLimitX / 2);
-  const [panY, setPanY] = useState(isDesktop ? 0 : panLimitY / 2);
-
-  // Reset pan when date changes
-  useEffect(() => {
-    if (!isDesktop) { setPanX(panLimitX / 2); setPanY(panLimitY / 2); }
-  }, [selectedDate]);
-
+  // SVG dimensions pre-computed above (zoom, vbW, vbH, panLimitX, panLimitY)
   return (
       <div className="h-full relative overflow-hidden">
         {/* floating controls */}
