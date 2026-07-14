@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         String        @default("USER")
+  createdAt    DateTime      @default(now())
+  reservations Reservation[]
+  reservationLogs ReservationLog[]
+  lockerReservations LockerReservation[]
+  roomReservations RoomReservation[]
+}
+
+model Desk {
+  id           Int           @id @default(autoincrement())
+  label        String        @unique
+  x            Int
+  y            Int
+  width        Int           @default(60)
+  height       Int           @default(40)
+  rotation     Int           @default(0)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  reservations Reservation[]
+  reservationLogs ReservationLog[]
+}
+
+model Reservation {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  deskId     Int
+  date       String
+  startTime  String
+  endTime    String
+  status     String    @default("pending")
+  checkedInAt DateTime?
+  checkedOutAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  desk Desk @relation(fields: [deskId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date, startTime])
+  @@index([date])
+  @@index([userId])
+  @@index([deskId])
+}
+
+model ReservationLog {
+  id        Int      @id @default(autoincrement())
+  action    String
+  userId    Int
+  deskId    Int
+  date      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  desk Desk @relation(fields: [deskId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model Locker {
+  id           Int           @id @default(autoincrement())
+  label        String        @unique
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  reservations LockerReservation[]
+}
+
+model LockerReservation {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  lockerId   Int
+  date       String
+  startTime  String
+  endTime    String
+  status     String    @default("pending")
+  checkedInAt DateTime?
+  checkedOutAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locker Locker @relation(fields: [lockerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date, startTime])
+  @@index([date])
+  @@index([userId])
+  @@index([lockerId])
+}
+
+model Setting {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+}
+
+model Room {
+  id           Int              @id @default(autoincrement())
+  name         String
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  reservations RoomReservation[]
+}
+
+model RoomReservation {
+  id         Int       @id @default(autoincrement())
+  roomId     Int
+  userId     Int
+  date       String
+  startTime  String
+  endTime    String
+  status     String    @default("pending")
+  checkedInAt DateTime?
+  checkedOutAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date, startTime])
+  @@index([date])
+  @@index([userId])
+  @@index([roomId])
+}
